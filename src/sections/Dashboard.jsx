@@ -1,106 +1,39 @@
-import React, { useState } from "react";
-import "./Dashboard.css";
-import PatientList from "../sections/PatientList";
-import Vitals from "../sections/Vitals";
+import React, { useState, useEffect } from "react";
 import ECG from "../sections/ECG";
-
-// Sample patients data
-const patientsData = {
-  person1: {
-    name: "person1",
-    id: "P001",
-    heartRate: 72,
-    bloodPressure: "120/80",
-    spo2: 98,
-    respiration: 16,
-    temperature: 98.6,
-    status: "Active",
-  },
-  person2: {
-    name: "person2",
-    id: "P002",
-    heartRate: 68,
-    bloodPressure: "115/75",
-    spo2: 97,
-    respiration: 14,
-    temperature: 98.4,
-    status: "Idle",
-  },
-  person3: {
-    name: "person3",
-    id: "P003",
-    heartRate: 75,
-    bloodPressure: "125/85",
-    spo2: 99,
-    respiration: 18,
-    temperature: 98.8,
-    status: "Active",
-  },
-};
+import "./Dashboard.css";
 
 const Dashboard = () => {
-  const [selectedPatientId, setSelectedPatientId] = useState(null);
-  const selectedPatient = selectedPatientId ? patientsData[selectedPatientId] : null;
+  const [heartRate, setHeartRate] = useState(72);
+
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8080");
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.heartRate) {
+          setHeartRate(data.heartRate);
+        }
+      } catch (e) {
+        console.error("WebSocket parse error", e);
+      }
+    };
+    return () => ws.close();
+  }, []);
+
+  // Classification
+  let condition = "Normal";
+  if (heartRate < 60) condition = "Bradycardia";
+  else if (heartRate > 100) condition = "Tachycardia";
 
   return (
     <section className="dashboard container">
-      <div className="layout">
-        {/* Sidebar */}
-        <div className="sidebar">
-          <PatientList
-            patients={patientsData}
-            selectedId={selectedPatientId}
-            onSelect={setSelectedPatientId}
-          />
+      <div className="card ecg-card">
+        <h2>ECG Waveform</h2>
+        <ECG />
+        <div className="output-status">
+          <h3>Condition: <span>{condition}</span></h3>
+          <p>Heart Rate: {heartRate} BPM</p>
         </div>
-
-        {/* Main Content */}
-        <main className="main">
-          {!selectedPatient ? (
-            <div className="placeholder">
-              <h1>Patient Dashboard</h1>
-              
-            </div>
-          ) : (
-            <>
-              {/* Patient Info */}
-              <div className="card patient-info">
-                <div>
-                  <h2>{selectedPatient.name}</h2>
-                  <p className="meta">Patient ID: {selectedPatient.id}</p>
-                </div>
-                <div className="status">
-                  <span
-                    className="status-dot"
-                    style={{
-                      background:
-                        selectedPatient.status === "Active"
-                          ? "var(--success)"
-                          : "#f59e0b",
-                    }}
-                  ></span>
-                  <span
-                    className="status-text"
-                    style={{
-                      color:
-                        selectedPatient.status === "Active"
-                          ? "var(--success)"
-                          : "#f59e0b",
-                    }}
-                  >
-                    {selectedPatient.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* ECG */}
-              <ECG />
-
-              {/* Vitals */}
-              <Vitals data={selectedPatient} />
-            </>
-          )}
-        </main>
       </div>
     </section>
   );
